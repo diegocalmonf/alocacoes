@@ -788,10 +788,27 @@ table.gmx th:last-child,table.gmx td:last-child{border-right:none}
         <div id="obsAuditoria" class="hint" style="margin-top:5px;display:none"></div>
       </div>
     </div>
-    <div class="modal-f">
-      <button class="btn primary wide" id="mSave">Salvar</button>
-      <button class="btn wide" id="mApplyWeek">Aplicar Seg–Sex</button>
-      <button class="btn danger" id="mClear">Limpar</button>
+    <div class="modal-f" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn primary wide" id="mSave"><i data-lucide="check"></i>Salvar este slot</button>
+        <button class="btn danger" id="mClear"><i data-lucide="trash-2"></i>Limpar</button>
+      </div>
+      <details id="bulkPanel" style="background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:0;overflow:hidden">
+        <summary style="cursor:pointer;padding:10px 14px;font-size:12.5px;font-weight:600;color:var(--muted);list-style:none;display:flex;align-items:center;gap:7px"><i data-lucide="copy-plus" class="icon-14"></i>Aplicar em lote (vários slots de uma vez)</summary>
+        <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:10px">
+          <button class="btn sm" id="mApplyDay" type="button"><i data-lucide="calendar-days"></i>Aplicar no dia inteiro (todos os slots desta data)</button>
+          <button class="btn sm" id="mApplyWeek" type="button"><i data-lucide="calendar-range"></i>Aplicar Seg–Sex (mesmo slot, semana toda)</button>
+          <div style="border-top:1px dashed var(--line);padding-top:10px">
+            <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:7px">Aplicar em intervalo de datas (mesmo slot)</div>
+            <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+              <div style="flex:1;min-width:130px"><label style="display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px">De</label><input type="date" id="mRangeFrom" style="width:100%;border:1px solid var(--line2);border-radius:var(--r-sm);padding:8px 10px;font-size:13px"></div>
+              <div style="flex:1;min-width:130px"><label style="display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px">Até</label><input type="date" id="mRangeTo" style="width:100%;border:1px solid var(--line2);border-radius:var(--r-sm);padding:8px 10px;font-size:13px"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;cursor:pointer"><input type="checkbox" id="mRangeWknd">incluir sábado e domingo</label>
+            <button class="btn sm primary" id="mApplyRange" type="button" style="margin-top:8px"><i data-lucide="calendar-check-2"></i>Aplicar no intervalo</button>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 </div>
@@ -1254,6 +1271,12 @@ function seedReleases(){
       "Hierarquia de botões refinada: primário, secundário, fantasma e destrutivo",
       "Modais, formulários e chips com tokens consistentes (sombras, raios, focus)",
       "Sidebar colapsa para drawer no mobile, com botão hamburger"]},
+    {versao:"1.14.0",data:"2026-05-29",autor:"Equipe",tipo:"novidade",itens:[
+      "Aplicação em lote no modal de alocação: \"Dia inteiro\" preenche os 6 slots da mesma data",
+      "Aplicação em intervalo de datas (De → Até) no mesmo slot, com opção de incluir fim de semana",
+      "Atalho \"Aplicar Seg–Sex\" continua disponível, agora agrupado em painel \"Aplicar em lote\"",
+      "Edição inline de perfil e vínculo no cadastro de Usuários",
+      "Zona de risco em Projetos: limpa todos os projetos e alocações com confirmação dupla"]},
   ];
 }
 function seedAlloc(){
@@ -1655,9 +1678,15 @@ function openAlloc(nomeOuIso,isoOuSlot,slotOuUndef){
   el("mCliente").disabled=!podeEditar; el("mOutro").disabled=!podeEditar;
   el("mObs").disabled=!podeEditar;
   el("mSave").style.display=podeEditar?"":"none";
-  el("mApplyWeek").style.display=podeEditar?"":"none";
   el("mClear").style.display=podeEditar?"":"none";
-  // ajusta exibição de campos conforme tipo
+  // painel de aplicação em lote: só pra quem pode editar
+  const bp=el("bulkPanel"); if(bp){bp.style.display=podeEditar?"":"none";bp.open=false;}
+  // pré-preenche o intervalo com a data da célula até o fim da semana
+  if(podeEditar){
+    el("mRangeFrom").value=iso;
+    el("mRangeTo").value=toISO(addDays(monday(parseISO(iso)),4));
+    el("mRangeWknd").checked=false;
+  }
   atualizaCamposPorTipo();
   el("overlay").classList.add("open");
 }
@@ -1699,6 +1728,28 @@ function applyWeek(){if(!editing)return;if(!validarObs())return;
   const ws=monday(parseISO(editing.iso));
   for(let i=0;i<5;i++){const iso=toISO(addDays(ws,i));const antigo=DATA[key(editing.nome,iso,editing.slot)];
     DATA[key(editing.nome,iso,editing.slot)]=montaRegistro(antigo);}
+  saveAlloc();closeAlloc();renderAll();}
+// Aplica a mesma alocação em TODOS os 6 slots do dia atual
+function applyDay(){if(!editing)return;if(!validarObs())return;
+  const slots=SLOTS.filter(s=>!s.lunch).map(s=>s.id);
+  if(!confirm(`Aplicar esta atividade em todos os ${slots.length} slots do dia ${fmtDM(parseISO(editing.iso))}? Slots já preenchidos serão sobrescritos.`))return;
+  slots.forEach(sid=>{const antigo=DATA[key(editing.nome,editing.iso,sid)];
+    DATA[key(editing.nome,editing.iso,sid)]=montaRegistro(antigo);});
+  saveAlloc();closeAlloc();renderAll();}
+// Aplica no mesmo slot, ao longo de um intervalo de datas
+function applyRange(){if(!editing)return;if(!validarObs())return;
+  const from=el("mRangeFrom").value, to=el("mRangeTo").value;
+  if(!from||!to){alert("Informe as datas De e Até.");return;}
+  if(from>to){alert("A data De precisa ser anterior ou igual à data Até.");return;}
+  const incluirFds=el("mRangeWknd").checked;
+  // monta lista de datas
+  const datas=[]; const a=parseISO(from), b=parseISO(to);
+  for(let d=new Date(a);d<=b;d=addDays(d,1)){const w=d.getDay();
+    if(incluirFds || (w>=1&&w<=5)) datas.push(toISO(d));}
+  if(!datas.length){alert("O intervalo selecionado não contém datas válidas.");return;}
+  if(!confirm(`Aplicar esta atividade em ${editing.slot} para ${datas.length} dia(s) (${fmtDM(parseISO(from))} → ${fmtDM(parseISO(to))})${incluirFds?'':' — apenas dias úteis'}? Slots já preenchidos serão sobrescritos.`))return;
+  datas.forEach(iso=>{const antigo=DATA[key(editing.nome,iso,editing.slot)];
+    DATA[key(editing.nome,iso,editing.slot)]=montaRegistro(antigo);});
   saveAlloc();closeAlloc();renderAll();}
 function clearCell(){if(!editing)return;delete DATA[key(editing.nome,editing.iso,editing.slot)];saveAlloc();closeAlloc();renderAll();}
 
@@ -3159,6 +3210,8 @@ function bind(){
   el("mAtividade").addEventListener("change",atualizaCamposPorTipo);
   el("mSave").addEventListener("click",saveAllocCell);
   el("mApplyWeek").addEventListener("click",applyWeek);
+  el("mApplyDay").addEventListener("click",applyDay);
+  el("mApplyRange").addEventListener("click",applyRange);
   el("mClear").addEventListener("click",clearCell);
   el("logoutBtn").addEventListener("click",doLogout);
   el("authLoginBtn").addEventListener("click",doLogin);
