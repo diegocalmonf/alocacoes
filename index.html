@@ -911,7 +911,7 @@ const USERS_PATH     = "alocacoes/users";   // /{uid} = {email, role, linkedAnal
             o app em produção com isto desligado.
    - true : fluxo normal de login (Firebase Auth), com perfis e escopos.
    ========================================================================= */
-const AUTH_ENABLED = true;
+const AUTH_ENABLED = false;
 const ADMIN_PRINCIPAL_EMAIL = "diego.rodrigues@nstech.com.br"; // sempre admin
 function isAdminEmail(email){return !!email && email.toLowerCase()===ADMIN_PRINCIPAL_EMAIL.toLowerCase();}
 const ALLOWED_EMAIL_DOMAIN  = "";           // ex.: "nstech.com.br" para restringir
@@ -1792,10 +1792,30 @@ function renderList(){
   b.innerHTML=`<div class="act-toolbar"><h3>${{projetos:'Projetos',analistas:'Analistas',lideres:'Líderes',gps:'Gerentes de Projeto (GP)',atividades:'Atividades',feriados:'Feriados'}[actTab]}</h3>
       <input class="search" id="actSearch" placeholder="Buscar…" value="${enc(actSearch)}">${toggleHTML}</div>
     <div class="list">${rows||`<div class="empty-state">${total>0&&ocultos>0?"Todos os registros estão inativos. Marque <b>Mostrar inativos</b> para vê-los.":'Nenhum registro. Clique em "'+addLabel+'".'}</div>`}</div>
-    <div class="add-bar"><button class="btn primary" id="actAdd">${addLabel}</button></div>`;
+    <div class="add-bar"><button class="btn primary" id="actAdd">${addLabel}</button></div>
+    ${actTab==="projetos"&&isAdmin()?`<div class="danger-zone" style="margin-top:24px;border:1px solid #e8c9c4;background:#fbeceb;border-radius:13px;padding:14px 16px">
+      <div style="font-family:'Bricolage Grotesque';font-weight:700;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:7px;margin-bottom:4px"><i data-lucide="alert-triangle"></i>Zona de risco</div>
+      <div class="hint" style="margin-bottom:10px">Use esta opção apenas para limpar uma importação errada. <b>A ação é irreversível</b> e afeta toda a equipe imediatamente (sincroniza com a nuvem). Analistas, líderes, GPs, atividades e releases permanecem.</div>
+      <button class="btn danger" id="wipeProjetosAloc"><i data-lucide="eraser"></i>Apagar TODOS os projetos e alocações</button>
+    </div>`:""}`;
   const s=el("actSearch");s.addEventListener("input",e=>{actSearch=e.target.value.toLowerCase();renderList();const f=el("actSearch");f.focus();f.setSelectionRange(f.value.length,f.value.length);});
   if(podeTogglar){el("toggleInativos").addEventListener("change",e=>{actShowInativos=e.target.checked;renderList();});}
   el("actAdd").addEventListener("click",()=>{actEditing={__new:true};renderForm();});
+  // Zona de risco — limpa todos os projetos e alocações
+  const wipeBtn=el("wipeProjetosAloc");
+  if(wipeBtn)wipeBtn.addEventListener("click",()=>{
+    const nProj=(REG.projetos||[]).length;
+    const nAloc=Object.keys(DATA||{}).length;
+    if(!confirm(`Confirma apagar ${nProj} projeto(s) e ${nAloc} alocação(ões)?\n\nEsta ação é IRREVERSÍVEL e sincroniza com a nuvem imediatamente.`))return;
+    const codigo=Math.random().toString(36).slice(2,6).toUpperCase();
+    const resp=prompt(`Para confirmar, digite o código: ${codigo}`);
+    if(resp!==codigo){alert("Código incorreto. Operação cancelada.");return;}
+    REG.projetos=[]; DATA={};
+    // remove referências de projetos nos analistas (vínculo projeto→analista já saiu junto)
+    persist();
+    renderConsultorSelect(); renderAll(); renderActions();
+    alert(`Limpeza concluída: ${nProj} projeto(s) e ${nAloc} alocação(ões) removidos.`);
+  });
   b.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>{
     if(actTab==="feriados"){actEditing=REG.feriados[+r.dataset.idx];}
     else{const nome=dec(r.dataset.nome);actEditing=actTab==="projetos"?REG.projetos.find(p=>p.nome===nome):actTab==="analistas"?REG.analistas.find(a=>a.nome===nome):{nome};}
