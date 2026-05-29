@@ -34,6 +34,7 @@
   --rot:#9C5A22;         --rot-bg:#FAEEDC;    --rot-bd:#E9CBA3;          /* interna/rotina */
   --int:#4A4A4A;         --int-bg:#EEEEEE;    --int-bd:#D5D5D5;          /* interna alt */
   --aus:#8a8a8a;         --aus-bg:#EFEFEF;    --aus-bd:#D9D9D9;          /* ausência */
+  --svc:#6D5A2C;         --svc-bg:#F2EDD8;    --svc-bd:#D5C58C;          /* service: âmbar-oliva */
   --livre:#B5B5B5;       --ok:#2f7a4f;        --warn:#b07a1e;            --danger:#a8341a;
   /* Sombras em escala */
   --shadow-xs:0 1px 2px rgba(20,20,20,.04);
@@ -184,6 +185,7 @@ thead th{background:#f5f5f5;padding:11px 12px;text-align:left}
 .chip.c-rot{background:var(--rot-bg);border-color:var(--rot-bd);color:#5a3818}
 .chip.c-int{background:var(--int-bg);border-color:var(--int-bd);color:#2a2a2a}
 .chip.c-aus{background:var(--aus-bg);border-color:var(--aus-bd);color:#4a4a4a}
+.chip.c-svc{background:var(--svc-bg);border-color:var(--svc-bd);color:#4a3a18}
 .chip.c-livre{background:transparent;border:1px dashed var(--line2);color:var(--livre);align-items:center;justify-content:center}
 .chip.c-livre .cli{font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
 .chip.empty{background:transparent;border:1px dashed #e0e0e0;align-items:center;justify-content:center;color:#cccccc}
@@ -439,6 +441,7 @@ table.gmx th:last-child,table.gmx td:last-child{border-right:none}
 .legend .sw{width:14px;height:14px;border-radius:5px;border:1px solid}
 .sw.c-proj{background:var(--proj-bg);border-color:var(--proj-bd)}.sw.c-rot{background:var(--rot-bg);border-color:var(--rot-bd)}
 .sw.c-int{background:var(--int-bg);border-color:var(--int-bd)}.sw.c-aus{background:var(--aus-bg);border-color:var(--aus-bd)}
+.sw.c-svc{background:var(--svc-bg);border-color:var(--svc-bd)}
 .sw.c-livre{background:transparent;border:1px dashed var(--line2)}
 .foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:8px}
 .foot .src{font-size:11.5px;color:var(--faint)}
@@ -759,6 +762,7 @@ table.gmx th:last-child,table.gmx td:last-child{border-right:none}
   <div class="legend">
     <div class="it"><span class="sw c-proj"></span>Implantação</div>
     <div class="it"><span class="sw c-rot"></span>Interna (rotina)</div>
+    <div class="it"><span class="sw c-svc"></span>Service</div>
     <div class="it"><span class="sw c-int"></span>Interna (capacitação)</div>
     <div class="it"><span class="sw c-aus"></span>Ausência</div>
     <div class="it"><span class="sw c-livre"></span>Livre</div>
@@ -855,9 +859,10 @@ table.gmx th:last-child,table.gmx td:last-child{border-right:none}
 // Tipos de atividade (categorias macro) — substituem a antiga lista fixa ATIVIDADES.
 // O cadastro de atividades (REG.atividades) vincula cada item a um destes tipos.
 const TIPOS_ATIVIDADE=[
-  {id:"interna",  nome:"Interna",     icone:"🏢"},
   {id:"implantacao",nome:"Implantação", icone:"🚀"},
-  {id:"ausencia", nome:"Ausência",    icone:"🌴"},
+  {id:"interna",   nome:"Interna",     icone:"🏢"},
+  {id:"service",   nome:"Service",     icone:"🔧"},
+  {id:"ausencia",  nome:"Ausência",    icone:"🌴"},
 ];
 const TIPO_LABEL=t=>{const x=TIPOS_ATIVIDADE.find(y=>y.id===t);return x?x.nome:t;};
 // Compatibilidade: atividade legada (string) → tipo da nova taxonomia
@@ -1111,11 +1116,20 @@ function categoria(cli){
   // Se o cliente é nome de atividade cadastrada, usa o tipo dela
   const ativ=atividadeObj(cli);
   if(ativ){
-    if(ativ.tipo==="ausencia") return "c-aus";
-    if(ativ.tipo==="interna")  return "c-rot";  // mantemos "rot" como visual de rotina/interna
-    return "c-proj"; // implantacao genérico fica como "projeto"
+    if(ativ.tipo==="ausencia")   return "c-aus";
+    if(ativ.tipo==="interna")    return "c-rot";
+    if(ativ.tipo==="service")    return "c-svc";
+    return "c-proj";
   }
-  // Fallback (compatibilidade com dados antigos onde cliente é um projeto)
+  // Se é nome de projeto, usa o tipo do projeto
+  const proj=(REG.projetos||[]).find(p=>p.nome===cli);
+  if(proj){
+    if(proj.tipo==="ausencia")   return "c-aus";
+    if(proj.tipo==="interna")    return "c-rot";
+    if(proj.tipo==="service")    return "c-svc";
+    return "c-proj";
+  }
+  // Fallback legado
   if(cli==="Daily"||cli==="Weekly") return "c-rot";
   if(/feriado|férias|ferias|corpus christi/i.test(cli)) return "c-aus";
   if(/capacita|onboarding|procedimentos rh|interna/i.test(cli)) return "c-int";
@@ -1164,7 +1178,13 @@ function seedReg(){
     ["Fantinato","Essential","Em andamento","DEIVID FIORIN","Sena",["Dutra"]],
     ["IG Transp.","Essential","Em andamento","WELINGTON SCHIMITZ","Sena",["Marlon"]],
     ["Consigas","Essential","Em andamento","WELLEN SANTOS","Sena",["Lucivandro"]],
-  ].map(([nome,seg,st,gp,lider,an])=>({nome,segmentacao:seg,status:st,gp,lider,analistas:an}));
+  ].map(([nome,seg,st,gp,lider,an])=>({nome,tipo:"implantacao",segmentacao:seg,status:st,gp,lider,analistas:an}));
+  // Projetos guarda-chuva: concentram alocações que não são de implantação de cliente
+  REG.projetos.push(
+    {nome:"Atividades Internas",tipo:"interna",   segmentacao:"Essential",status:"Em andamento",gp:"",lider:"",analistas:[]},
+    {nome:"Ausências",           tipo:"ausencia", segmentacao:"Essential",status:"Em andamento",gp:"",lider:"",analistas:[]},
+    {nome:"Services",            tipo:"service",  segmentacao:"Essential",status:"Em andamento",gp:"",lider:"",analistas:[]},
+  );
   REG.feriados=[
     {data:"2026-04-03",nome:"Sexta-feira Santa"},
     {data:"2026-04-21",nome:"Tiradentes"},
@@ -1199,6 +1219,11 @@ function seedAtividades(){
     mk("Homologação","implantacao",true),
     mk("Go Live","implantacao",true),
     mk("Pós Go Live","implantacao",true),
+    // Service (atendimento ao cliente já implantado)
+    mk("Atendimento Service","service",true),
+    mk("Suporte ao cliente","service",true),
+    mk("Análise de chamado","service"),
+    mk("Ajuste/correção pós-implantação","service",true),
     // Ausências
     mk("Férias","ausencia"),
     mk("Atestado","ausencia",true),
@@ -1277,6 +1302,12 @@ function seedReleases(){
       "Atalho \"Aplicar Seg–Sex\" continua disponível, agora agrupado em painel \"Aplicar em lote\"",
       "Edição inline de perfil e vínculo no cadastro de Usuários",
       "Zona de risco em Projetos: limpa todos os projetos e alocações com confirmação dupla"]},
+    {versao:"1.15.0",data:"2026-05-29",autor:"Equipe",tipo:"novidade",itens:[
+      "Tipo do projeto: cada projeto agora tem natureza (Implantação · Interna · Service · Ausência)",
+      "Novo tipo Service para registrar atendimento ao cliente já implantado (suporte, ajustes pós-Go Live)",
+      "Projetos guarda-chuva criados: \"Atividades Internas\", \"Ausências\" e \"Services\"",
+      "Coerência projeto×atividade: o dropdown de atividade no modal só mostra atividades compatíveis com o tipo do projeto selecionado",
+      "Cor própria para Service na grade e na legenda (âmbar-oliva)"]},
   ];
 }
 function seedAlloc(){
@@ -1595,19 +1626,36 @@ function buildClienteSelect(sel){
   html+=`<optgroup label="Outro"><option value="__outro__" ${sel==="__outro__"?"selected":""}>Outro (digitar)…</option></optgroup>`;
   el("mCliente").innerHTML=html;
 }
-// Popula o select de atividades agrupado por tipo (Interna / Implantação / Ausência)
+// Resolve o tipo do projeto selecionado no dropdown de cliente (se houver match no cadastro)
+function tipoProjetoSelecionado(){
+  const sel=el("mCliente"); if(!sel)return null;
+  const v=sel.value;
+  if(!v||v==="Livre"||v==="__outro__")return null;
+  const proj=(REG.projetos||[]).find(p=>p.nome===v);
+  return proj?(proj.tipo||"implantacao"):null;
+}
+
+// Popula o select de atividades — se há projeto selecionado COM tipo, filtra para
+// atividades do mesmo tipo (regra de coerência projeto×atividade)
 function renderAtividadeSelect(selecionada){
   const sel=el("mAtividade"); if(!sel)return;
+  const tipoProj=tipoProjetoSelecionado(); // null = sem restrição
   const grupos=TIPOS_ATIVIDADE.map(t=>{
+    // se há projeto com tipo, só mostra o grupo correspondente
+    if(tipoProj && t.id!==tipoProj)return "";
     const its=atividadesAtivasPorTipo(t.id);
     if(!its.length)return "";
     const opts=its.map(a=>`<option value="${enc(a.nome)}" data-tipo="${t.id}" data-exige-obs="${a.exigeObs?1:0}" ${a.nome===selecionada?"selected":""}>${enc(a.nome)}</option>`).join("");
+    // se há filtro de tipo, omite o label do grupo (visual mais limpo)
+    if(tipoProj)return opts;
     return `<optgroup label="${t.icone} ${t.nome}">${opts}</optgroup>`;
   }).join("");
-  // se a atividade selecionada for legada (não está no cadastro), inclui como item solto pra não perder
-  const todos=atividadesAtivas().map(a=>a.nome);
-  const extra=(selecionada && !todos.includes(selecionada))?`<optgroup label="Legado"><option selected>${enc(selecionada)}</option></optgroup>`:"";
+  // se a atividade selecionada não está no filtro (legado ou trocou tipo do projeto), insere como "Legado"
+  const candidatos=tipoProj?atividadesAtivasPorTipo(tipoProj).map(a=>a.nome):atividadesAtivas().map(a=>a.nome);
+  const extra=(selecionada && !candidatos.includes(selecionada))?`<optgroup label="Outras"><option selected>${enc(selecionada)}</option></optgroup>`:"";
   sel.innerHTML=extra+grupos;
+  // se não houver nada compatível, deixa uma opção informativa
+  if(!sel.options.length)sel.innerHTML=`<option disabled selected>Nenhuma atividade compatível com este tipo de projeto. Cadastre em Ações → Atividades.</option>`;
 }
 // Tipo atual selecionado no dropdown de atividade
 function tipoAtividadeSelecionada(){
@@ -1778,10 +1826,10 @@ function renderList(){
     items=REG.projetos.filter(p=>p.nome.toLowerCase().includes(actSearch));
     total=items.length;
     if(!actShowInativos){ocultos=items.filter(p=>!isAtivo(p)).length;items=items.filter(p=>isAtivo(p));}
-    rows=items.map(p=>{const col=colorFor(p.nome);const at=isAtivo(p);return `<div class="row${ina(at)}" data-nome="${enc(p.nome)}">
+    rows=items.map(p=>{const col=colorFor(p.nome);const at=isAtivo(p);const t=TIPOS_ATIVIDADE.find(x=>x.id===(p.tipo||"implantacao"))||{nome:"—",icone:"•"};return `<div class="row${ina(at)}" data-nome="${enc(p.nome)}">
       <div class="av" style="background:${col}">${(p.nome[0]||'?').toUpperCase()}</div>
       <div class="main"><div class="nm">${p.nome}${selo(at)}</div>
-      <div class="meta"><span class="badge b-seg">${p.segmentacao||'—'}</span>${statusBadge(p.status)}
+      <div class="meta"><span class="badge" style="background:#f5f5f5;color:var(--muted);border:1px solid var(--line);font-weight:700">${t.icone} ${enc(t.nome)}</span><span class="badge b-seg">${p.segmentacao||'—'}</span>${statusBadge(p.status)}
       <span>Líder: <b>${p.lider||'—'}</b></span><span>· GP: <b>${p.gp||'—'}</b></span><span>· ${(p.analistas||[]).length} analista(s)</span></div></div>
       <span class="chev">›</span></div>`;}).join("");
   }else if(actTab==="analistas"){
@@ -1882,23 +1930,25 @@ function renderList(){
 function renderForm(){
   const b=el("actBody"), isNew=!!actEditing.__new;
   if(actTab==="projetos"){
-    const p=isNew?{nome:"",segmentacao:"Essential",status:"Em andamento",gp:"",lider:"",analistas:[]}:actEditing;
+    const p=isNew?{nome:"",tipo:"implantacao",segmentacao:"Essential",status:"Em andamento",gp:"",lider:"",analistas:[]}:actEditing;
+    if(!p.tipo)p.tipo="implantacao"; // compat com projetos antigos
     b.innerHTML=`<div class="crumb"><button id="back">‹ Projetos</button>/ ${isNew?'Novo':enc(p.nome)}</div>
       <div class="form-grid">
-        <div class="f full"><label>Nome do projeto</label><input type="text" id="f_nome" value="${enc(p.nome)}" placeholder="Ex.: Transbom"></div>
+        <div class="f"><label>Nome do projeto</label><input type="text" id="f_nome" value="${enc(p.nome)}" placeholder="Ex.: Transbom"></div>
+        <div class="f"><label>Tipo do projeto</label><select id="f_tipo">${TIPOS_ATIVIDADE.map(t=>`<option value="${t.id}" ${t.id===p.tipo?'selected':''}>${t.icone} ${t.nome}</option>`).join("")}</select></div>
         <div class="f"><label>Segmentação</label><select id="f_seg">${SEGMENTACOES.map(s=>`<option ${s===p.segmentacao?'selected':''}>${s}</option>`).join("")}</select></div>
         <div class="f"><label>Status</label><select id="f_status">${STATUSES.map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join("")}</select></div>
         <div class="f"><label>GP (Gerente de Projeto)</label><select id="f_gp"><option value="">—</option>${(p.gp&&!gpsAtivos().includes(p.gp))?`<option selected>${enc(p.gp)} (inativo)</option>`:""}${gpsAtivos().map(g=>`<option ${g===p.gp?'selected':''}>${enc(g)}</option>`).join("")}</select></div>
         <div class="f"><label>Líder de implantação</label><select id="f_lider"><option value="">—</option>${(p.lider&&!lideresAtivos().includes(p.lider))?`<option selected>${enc(p.lider)} (inativo)</option>`:""}${lideresAtivos().map(l=>`<option ${l===p.lider?'selected':''}>${enc(l)}</option>`).join("")}</select></div>
         <div class="f full"><label>Analistas no projeto (vínculo)</label>
           <div class="chk-grid" id="f_analistas">${analistaNomes().map(n=>{const on=(p.analistas||[]).includes(n);return `<label class="chk ${on?'sel':''}"><input type="checkbox" value="${enc(n)}" ${on?'checked':''}>${n}</label>`;}).join("")||'<div class="hint" style="padding:10px">Cadastre analistas primeiro.</div>'}${(p.analistas||[]).filter(n=>!analistaNomes().includes(n)).map(n=>`<label class="chk sel" style="opacity:.6"><input type="checkbox" value="${enc(n)}" checked>${enc(n)} (inativo)</label>`).join("")}</div>
-          <div class="hint">Esses analistas aparecem como "Projetos do analista" na hora de alocar.</div>
+          <div class="hint">O <b>tipo do projeto</b> limita quais atividades podem ser lançadas nele. Ex.: um projeto de tipo "Ausência" só aceita atividades como Férias, Atestado, Folga. Você cria projetos guarda-chuva como "Atividades Internas", "Ausências" e "Services" para concentrar essas alocações.</div>
         </div>
       </div>`;
     bindFormFooter(()=>{
       const nome=el("f_nome").value.trim();if(!nome)return;
       const analistas=[...b.querySelectorAll('#f_analistas input:checked')].map(i=>dec(i.value));
-      const obj={nome,segmentacao:el("f_seg").value,status:el("f_status").value,gp:el("f_gp").value,lider:el("f_lider").value,analistas};
+      const obj={nome,tipo:el("f_tipo").value,segmentacao:el("f_seg").value,status:el("f_status").value,gp:el("f_gp").value,lider:el("f_lider").value,analistas};
       if(isNew){REG.projetos.push(obj);}else{if(actEditing.nome!==nome)renameProjeto(actEditing.nome,nome);Object.assign(actEditing,obj);}
       finishForm();
     },isNew?null:()=>{REG.projetos=REG.projetos.filter(x=>x!==actEditing);finishForm();});
@@ -3212,7 +3262,13 @@ function bind(){
   el("actOverlay").addEventListener("click",e=>{if(e.target.id==="actOverlay")closeActions();});
   el("mClose").addEventListener("click",closeAlloc);
   el("overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeAlloc();});
-  el("mCliente").addEventListener("change",e=>{el("outroWrap").style.display=e.target.value==="__outro__"?"block":"none";});
+  el("mCliente").addEventListener("change",e=>{
+    el("outroWrap").style.display=e.target.value==="__outro__"?"block":"none";
+    // ao trocar o projeto, refiltra atividades pelo tipo do projeto selecionado
+    const atvAtual=el("mAtividade").value;
+    renderAtividadeSelect(atvAtual);
+    atualizaCamposPorTipo();
+  });
   el("mAtividade").addEventListener("change",atualizaCamposPorTipo);
   el("mSave").addEventListener("click",saveAllocCell);
   el("mApplyWeek").addEventListener("click",applyWeek);
