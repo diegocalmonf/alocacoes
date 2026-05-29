@@ -1868,9 +1868,15 @@ function renderList(){
     alert(`Limpeza concluída: ${nProj} projeto(s) e ${nAloc} alocação(ões) removidos.`);
   });
   b.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>{
-    if(actTab==="feriados"){actEditing=REG.feriados[+r.dataset.idx];}
-    else{const nome=dec(r.dataset.nome);actEditing=actTab==="projetos"?REG.projetos.find(p=>p.nome===nome):actTab==="analistas"?REG.analistas.find(a=>a.nome===nome):{nome};}
-    renderForm();}));
+    if(actTab==="feriados"){actEditing=REG.feriados[+r.dataset.idx];return;}
+    const nome=dec(r.dataset.nome);
+    if(actTab==="projetos")      actEditing=REG.projetos.find(p=>p.nome===nome);
+    else if(actTab==="analistas")actEditing=REG.analistas.find(a=>a.nome===nome);
+    else if(actTab==="atividades")actEditing=(REG.atividades||[]).find(a=>a.nome===nome);
+    else /* lideres, gps — guardam só strings; o form lida pelo nome */
+      actEditing={nome};
+    renderForm();
+  }));
 }
 
 function renderForm(){
