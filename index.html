@@ -911,7 +911,7 @@ const USERS_PATH     = "alocacoes/users";   // /{uid} = {email, role, linkedAnal
             o app em produção com isto desligado.
    - true : fluxo normal de login (Firebase Auth), com perfis e escopos.
    ========================================================================= */
-const AUTH_ENABLED = false;
+const AUTH_ENABLED = true;
 const ADMIN_PRINCIPAL_EMAIL = "diego.rodrigues@nstech.com.br"; // sempre admin
 function isAdminEmail(email){return !!email && email.toLowerCase()===ADMIN_PRINCIPAL_EMAIL.toLowerCase();}
 const ALLOWED_EMAIL_DOMAIN  = "";           // ex.: "nstech.com.br" para restringir
